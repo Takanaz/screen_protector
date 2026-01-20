@@ -1,6 +1,9 @@
 import Flutter
 import UIKit
 import ScreenProtectorKit
+#if canImport(FirebaseCrashlytics)
+    import FirebaseCrashlytics
+#endif
 
 public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private static var channel: FlutterMethodChannel? = nil
@@ -28,6 +31,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         }
         
         let currentWindow = Self.activeWindow()
+        logWindowState(context: "initializeManagerIfNeeded", window: currentWindow)
         
         if forceRecreate || (trackedWindow != nil && currentWindow !== trackedWindow) {
             self.didBecomeActive(.dataLeakage)
@@ -106,6 +110,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     public func applicationWillResignActive(_ application: UIApplication) {
         // Protect Data Leakage - ON && Prevent Screenshot - OFF
         DispatchQueue.main.async {
+            self.logWindowState(context: "applicationWillResignActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded()
             self.willResignActive(.dataLeakage)
             self.willResignActive(.screenshot)
@@ -115,6 +120,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     public func applicationDidBecomeActive(_ application: UIApplication) {
         // Protect Data Leakage - OFF && Prevent Screenshot - ON
         DispatchQueue.main.async {
+            self.logWindowState(context: "applicationDidBecomeActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded(forceRecreate: true)
             self.didBecomeActive(.dataLeakage)
             self.didBecomeActive(.screenshot)
@@ -172,12 +178,14 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 break
             case "preventScreenshotOn":
                 self.preventScreenshotState = .on
+                self.logWindowState(context: "preventScreenshotOn", window: Self.activeWindow())
                 self.screenProtectorKit?.configurePreventionScreenshot()
                 self.screenProtectorKit?.enabledPreventScreenshot()
                 result(true)
                 break
             case "preventScreenshotOff":
                 self.preventScreenshotState = .off
+                self.logWindowState(context: "preventScreenshotOff", window: Self.activeWindow())
                 self.screenProtectorKit?.disablePreventScreenshot()
                 result(true)
                 break
@@ -256,6 +264,32 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         debugPrint("[screen_protector] colorProtectionState: \(colorProtectionState)")
         debugPrint("[screen_protector] imageProtectionName: \(imageProtectionName)")
         debugPrint("[screen_protector] colorProtectionHex: \(colorProtectionHex)")
+    }
+
+    private func logWindowState(context: String, window: UIWindow?) {
+        guard let window = window else {
+            let message = "[screen_protector] \(context): window=nil"
+            debugPrint(message)
+            logToCrashlytics(message)
+            return
+        }
+        let bounds = window.bounds
+        let frame = window.frame
+        let safeInsets = window.safeAreaInsets
+        let sceneState = (window.windowScene?.activationState).map { "\($0.rawValue)" } ?? "nil"
+        let isKey = window.isKeyWindow
+        let rootVC = String(describing: window.rootViewController)
+        let message =
+            "[screen_protector] \(context): isKey=\(isKey) scene=\(sceneState) " +
+            "bounds=\(bounds) frame=\(frame) safeArea=\(safeInsets) rootVC=\(rootVC)"
+        debugPrint(message)
+        logToCrashlytics(message)
+    }
+
+    private func logToCrashlytics(_ message: String) {
+        #if canImport(FirebaseCrashlytics)
+            Crashlytics.crashlytics().log(message)
+        #endif
     }
     
     deinit {
