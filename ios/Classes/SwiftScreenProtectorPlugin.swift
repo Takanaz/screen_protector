@@ -171,7 +171,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         DispatchQueue.main.async {
             self.lastDidBecomeActiveAt = Date().timeIntervalSince1970
             self.logWindowState(context: "applicationDidBecomeActive", window: Self.activeWindow())
-            self.initializeManagerIfNeeded(forceRecreate: true)
+            self.initializeManagerIfNeeded()
             self.didBecomeActive(.dataLeakage)
             self.didBecomeActive(.screenshot)
         }
@@ -303,7 +303,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         }
         
         let foregroundObserver = center.addObserver(forName: UIScene.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.initializeManagerIfNeeded(forceRecreate: true)
+            self?.initializeManagerIfNeeded()
         }
         
         sceneObservers.append(contentsOf: [disconnectObserver, foregroundObserver])
