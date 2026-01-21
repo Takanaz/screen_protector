@@ -42,9 +42,7 @@ class ScreenProtector {
       }
     } else if (call.method == 'onScreenRecord') {
       dynamic isCaptured = call.arguments;
-      if (null != _onScreenRecordListener &&
-          isCaptured != null &&
-          isCaptured is bool) {
+      if (null != _onScreenRecordListener && isCaptured != null && isCaptured is bool) {
         _onScreenRecordListener!(isCaptured);
       }
     }
@@ -102,6 +100,14 @@ class ScreenProtector {
   /// Supported for Android and iOS.
   static Future<void> preventScreenshotOff() async {
     return await _channel.invokeMethod('preventScreenshotOff');
+  }
+
+  /// Supported for iOS only, do nothing when run on Android.
+  /// Used to prevent pending ON from applying on non-protected screens.
+  static Future<void> setProtectionEnabled(bool enabled) async {
+    return await _channel.invokeMethod('setProtectionEnabled', {
+      'enabled': enabled,
+    });
   }
 
   /// Supported for iOS only, do nothing when run on Android.

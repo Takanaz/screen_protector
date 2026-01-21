@@ -16,6 +16,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private var colorProtectionState: ProtectionState = .idle
     private var imageProtectionName: String = ""
     private var colorProtectionHex: String = ""
+    private var isProtectionEnabled: Bool = false
     private var pendingScreenshotState: ProtectionState? = nil
     private var screenshotStateWorkItem: DispatchWorkItem? = nil
     private let screenshotStateDelay: TimeInterval = 0.2
@@ -65,6 +66,9 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             guard self.screenProtectorKit != nil, Self.activeWindow() != nil else { return }
             self.pendingScreenshotState = nil
             if pending == .on {
+                if !self.isProtectionEnabled {
+                    return
+                }
                 self.logWindowState(context: "applyPendingScreenshotOn", window: Self.activeWindow())
                 self.screenProtectorKit?.configurePreventionScreenshot()
                 self.screenProtectorKit?.enabledPreventScreenshot()
@@ -123,7 +127,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         
         if type == .screenshot {
             // Prevent Screenshot - ON
-            if preventScreenshotState == .on {
+            if preventScreenshotState == .on && isProtectionEnabled {
                 onMain {
                     self.screenProtectorKit?.configurePreventionScreenshot()
                     self.screenProtectorKit?.enabledPreventScreenshot()
@@ -153,7 +157,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     }
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        let args = call.arguments as? Dictionary<String, String>
+        let args = call.arguments as? Dictionary<String, Any>
         DispatchQueue.main.async {
             self.initializeManagerIfNeeded()
             switch call.method {
@@ -167,9 +171,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 result(true)
                 break
             case "protectDataLeakageWithImage":
-                if args != nil {
-                    self.imageProtectionName = args!["name"] ?? "LaunchImage"
-                }
+                self.imageProtectionName = (args?["name"] as? String) ?? "LaunchImage"
                 self.imageProtectionState = .on
                 result(true)
                 break
@@ -179,7 +181,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 result(true)
                 break
             case "protectDataLeakageWithColor":
-                guard let args = args, let hexColor = args["hexColor"] else {
+                guard let hexColor = args?["hexColor"] as? String else {
                     result(false)
                     return
                 }
@@ -204,8 +206,10 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             case "preventScreenshotOn":
                 self.preventScreenshotState = .on
                 self.logWindowState(context: "preventScreenshotOn", window: Self.activeWindow())
-                self.pendingScreenshotState = .on
-                self.scheduleApplyPendingScreenshotState()
+                if self.isProtectionEnabled {
+                    self.pendingScreenshotState = .on
+                    self.scheduleApplyPendingScreenshotState()
+                }
                 result(true)
                 break
             case "preventScreenshotOff":
@@ -213,6 +217,20 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 self.logWindowState(context: "preventScreenshotOff", window: Self.activeWindow())
                 self.pendingScreenshotState = .off
                 self.scheduleApplyPendingScreenshotState()
+                result(true)
+                break
+            case "setProtectionEnabled":
+                let enabled = args?["enabled"] as? Bool ?? false
+                self.isProtectionEnabled = enabled
+                if enabled {
+                    if self.preventScreenshotState == .on {
+                        self.pendingScreenshotState = .on
+                        self.scheduleApplyPendingScreenshotState()
+                    }
+                } else {
+                    self.pendingScreenshotState = .off
+                    self.scheduleApplyPendingScreenshotState()
+                }
                 result(true)
                 break
             case "addListener":
