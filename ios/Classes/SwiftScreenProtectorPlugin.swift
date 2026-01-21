@@ -18,6 +18,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private var colorProtectionHex: String = ""
     private var isProtectionEnabled: Bool = false
     private var pendingScreenshotState: ProtectionState? = nil
+    private var lastAppliedScreenshotState: ProtectionState = .idle
     private var screenshotStateWorkItem: DispatchWorkItem? = nil
     private let screenshotStateDelay: TimeInterval = 0.2
     
@@ -64,17 +65,29 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             self.initializeManagerIfNeeded()
             guard let pending = self.pendingScreenshotState else { return }
             guard self.screenProtectorKit != nil, Self.activeWindow() != nil else { return }
+            guard pending == self.preventScreenshotState else {
+                self.pendingScreenshotState = nil
+                return
+            }
             self.pendingScreenshotState = nil
             if pending == .on {
                 if !self.isProtectionEnabled {
                     return
                 }
+                if self.lastAppliedScreenshotState == .on {
+                    return
+                }
                 self.logWindowState(context: "applyPendingScreenshotOn", window: Self.activeWindow())
                 self.screenProtectorKit?.configurePreventionScreenshot()
                 self.screenProtectorKit?.enabledPreventScreenshot()
+                self.lastAppliedScreenshotState = .on
             } else if pending == .off {
+                if self.lastAppliedScreenshotState == .off {
+                    return
+                }
                 self.logWindowState(context: "applyPendingScreenshotOff", window: Self.activeWindow())
                 self.screenProtectorKit?.disablePreventScreenshot()
+                self.lastAppliedScreenshotState = .off
             }
         }
         screenshotStateWorkItem = workItem
@@ -128,10 +141,8 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         if type == .screenshot {
             // Prevent Screenshot - ON
             if preventScreenshotState == .on && isProtectionEnabled {
-                onMain {
-                    self.screenProtectorKit?.configurePreventionScreenshot()
-                    self.screenProtectorKit?.enabledPreventScreenshot()
-                }
+                self.pendingScreenshotState = .on
+                self.scheduleApplyPendingScreenshotState()
             }
         }
     }
@@ -204,6 +215,10 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 result(true)
                 break
             case "preventScreenshotOn":
+                if self.preventScreenshotState == .on, self.lastAppliedScreenshotState == .on {
+                    result(true)
+                    break
+                }
                 self.preventScreenshotState = .on
                 self.logWindowState(context: "preventScreenshotOn", window: Self.activeWindow())
                 if self.isProtectionEnabled {
@@ -213,6 +228,10 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 result(true)
                 break
             case "preventScreenshotOff":
+                if self.preventScreenshotState == .off, self.lastAppliedScreenshotState == .off {
+                    result(true)
+                    break
+                }
                 self.preventScreenshotState = .off
                 self.logWindowState(context: "preventScreenshotOff", window: Self.activeWindow())
                 self.pendingScreenshotState = .off
