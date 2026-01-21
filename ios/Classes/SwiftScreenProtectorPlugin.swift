@@ -16,6 +16,9 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private var colorProtectionState: ProtectionState = .idle
     private var imageProtectionName: String = ""
     private var colorProtectionHex: String = ""
+    private var pendingScreenshotState: ProtectionState? = nil
+    private var screenshotStateWorkItem: DispatchWorkItem? = nil
+    private let screenshotStateDelay: TimeInterval = 0.2
     
     override public init() {
         super.init()
@@ -50,6 +53,28 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         self.screenProtectorKit = ScreenProtectorKit(window: window)
         
         self.trackedWindow = window
+        scheduleApplyPendingScreenshotState()
+    }
+
+    private func scheduleApplyPendingScreenshotState() {
+        screenshotStateWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.initializeManagerIfNeeded()
+            guard let pending = self.pendingScreenshotState else { return }
+            guard self.screenProtectorKit != nil, Self.activeWindow() != nil else { return }
+            self.pendingScreenshotState = nil
+            if pending == .on {
+                self.logWindowState(context: "applyPendingScreenshotOn", window: Self.activeWindow())
+                self.screenProtectorKit?.configurePreventionScreenshot()
+                self.screenProtectorKit?.enabledPreventScreenshot()
+            } else if pending == .off {
+                self.logWindowState(context: "applyPendingScreenshotOff", window: Self.activeWindow())
+                self.screenProtectorKit?.disablePreventScreenshot()
+            }
+        }
+        screenshotStateWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + screenshotStateDelay, execute: workItem)
     }
     
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -179,14 +204,15 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             case "preventScreenshotOn":
                 self.preventScreenshotState = .on
                 self.logWindowState(context: "preventScreenshotOn", window: Self.activeWindow())
-                self.screenProtectorKit?.configurePreventionScreenshot()
-                self.screenProtectorKit?.enabledPreventScreenshot()
+                self.pendingScreenshotState = .on
+                self.scheduleApplyPendingScreenshotState()
                 result(true)
                 break
             case "preventScreenshotOff":
                 self.preventScreenshotState = .off
                 self.logWindowState(context: "preventScreenshotOff", window: Self.activeWindow())
-                self.screenProtectorKit?.disablePreventScreenshot()
+                self.pendingScreenshotState = .off
+                self.scheduleApplyPendingScreenshotState()
                 result(true)
                 break
             case "addListener":
@@ -293,6 +319,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     }
     
     deinit {
+        screenshotStateWorkItem?.cancel()
         sceneObservers.forEach { NotificationCenter.default.removeObserver($0) }
         tearDownManager()
     }
