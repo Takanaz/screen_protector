@@ -21,6 +21,8 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private var lastAppliedScreenshotState: ProtectionState = .idle
     private var screenshotStateWorkItem: DispatchWorkItem? = nil
     private let screenshotStateDelay: TimeInterval = 0.2
+    private var lastDidBecomeActiveAt: TimeInterval? = nil
+    private let reparentCooldownAfterActive: TimeInterval = 0.8
     
     override public init() {
         super.init()
@@ -73,6 +75,13 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             if pending == .on {
                 if !self.isProtectionEnabled {
                     return
+                }
+                if let activeAt = self.lastDidBecomeActiveAt {
+                    let elapsed = Date().timeIntervalSince1970 - activeAt
+                    if elapsed < self.reparentCooldownAfterActive {
+                        self.scheduleApplyPendingScreenshotState()
+                        return
+                    }
                 }
                 if self.lastAppliedScreenshotState == .on {
                     return
@@ -160,6 +169,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     public func applicationDidBecomeActive(_ application: UIApplication) {
         // Protect Data Leakage - OFF && Prevent Screenshot - ON
         DispatchQueue.main.async {
+            self.lastDidBecomeActiveAt = Date().timeIntervalSince1970
             self.logWindowState(context: "applicationDidBecomeActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded(forceRecreate: true)
             self.didBecomeActive(.dataLeakage)
@@ -309,7 +319,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         if #available(iOS 13.0, *) {
             return UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
-                .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+                .filter { $0.activationState == .foregroundActive }
                 .flatMap { $0.windows }
                 .first { $0.isKeyWindow }
         } else {
