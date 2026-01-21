@@ -315,14 +315,25 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     
     private static func activeWindow() -> UIWindow? {
         if #available(iOS 13.0, *) {
-            return UIApplication.shared.connectedScenes
+            let windows = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
                 .filter { $0.activationState == .foregroundActive }
                 .flatMap { $0.windows }
-                .first { $0.isKeyWindow }
+            if let flutterWindow = windows.first(where: { isFlutterRootWindow($0) }) {
+                return flutterWindow
+            }
+            return windows.first { $0.isKeyWindow }
         } else {
-            return UIApplication.shared.windows.first { $0.isKeyWindow }
+            let windows = UIApplication.shared.windows
+            if let flutterWindow = windows.first(where: { isFlutterRootWindow($0) }) {
+                return flutterWindow
+            }
+            return windows.first { $0.isKeyWindow }
         }
+    }
+
+    private static func isFlutterRootWindow(_ window: UIWindow) -> Bool {
+        return window.rootViewController is FlutterViewController
     }
     
     private func log() {
