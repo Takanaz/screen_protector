@@ -338,13 +338,12 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         }
         let bounds = window.bounds
         let frame = window.frame
-        let safeInsets = window.safeAreaInsets
         let sceneState = (window.windowScene?.activationState).map { "\($0.rawValue)" } ?? "nil"
         let isKey = window.isKeyWindow
         let rootVC = String(describing: window.rootViewController)
         let message =
             "[screen_protector] \(context): isKey=\(isKey) scene=\(sceneState) " +
-            "bounds=\(bounds) frame=\(frame) safeArea=\(safeInsets) rootVC=\(rootVC)"
+            "bounds=\(bounds) frame=\(frame) rootVC=\(rootVC)"
         debugPrint(message)
         logToCrashlytics(message)
     }
