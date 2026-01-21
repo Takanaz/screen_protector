@@ -162,7 +162,6 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             self.logWindowState(context: "applicationWillResignActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded()
             self.willResignActive(.dataLeakage)
-            self.willResignActive(.screenshot)
         }
     }
     
@@ -173,7 +172,6 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             self.logWindowState(context: "applicationDidBecomeActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded()
             self.didBecomeActive(.dataLeakage)
-            self.didBecomeActive(.screenshot)
         }
     }
     
