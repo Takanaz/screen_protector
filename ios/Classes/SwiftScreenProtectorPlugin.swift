@@ -328,11 +328,10 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     }
     
     private static func activeWindow() -> UIWindow? {
-        // まず FlutterViewController の view.window を優先
+        // FlutterViewController.view.window を最優先
         if let flutterWindow = currentFlutterWindowFromView() {
             return flutterWindow
         }
-        // fallback（従来通り）
         if #available(iOS 13.0, *) {
             let windows = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
@@ -360,9 +359,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             allWindows = UIApplication.shared.windows
         }
         if let flutterWindow = allWindows.first(where: { isFlutterRootWindow($0) }) {
-            if let viewWindow = flutterWindow.rootViewController?.view.window {
-                return viewWindow
-            }
+            return flutterWindow.rootViewController?.view.window
         }
         return nil
     }
