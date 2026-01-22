@@ -22,7 +22,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private var screenshotStateWorkItem: DispatchWorkItem? = nil
     private let screenshotStateDelay: TimeInterval = 0.2
     private var lastDidBecomeActiveAt: TimeInterval = 0
-    private let reparentCooldownAfterActive: TimeInterval = 1.2
+    private let reparentCooldownAfterActive: TimeInterval = 2.0
     
     override public init() {
         super.init()
