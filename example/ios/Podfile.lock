@@ -7,8 +7,8 @@ PODS:
     - Flutter
   - screen_protector (1.4.9):
     - Flutter
-    - ScreenProtectorKit (= 1.4.24)
-  - ScreenProtectorKit (1.4.24)
+    - ScreenProtectorKit (= 1.4.25)
+  - ScreenProtectorKit (1.4.25)
   - TOCropViewController (2.8.0)
 
 DEPENDENCIES:
