@@ -40,7 +40,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         let currentWindow = Self.activeWindow()
         logWindowState(context: "initializeManagerIfNeeded", window: currentWindow)
         
-        if forceRecreate || (trackedWindow != nil && currentWindow !== trackedWindow) {
+        if forceRecreate || (trackedWindow != nil && currentWindow != nil && currentWindow !== trackedWindow) {
             self.didBecomeActive(.dataLeakage)
             tearDownManager()
         }
@@ -176,6 +176,10 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             self.logWindowState(context: "applicationWillResignActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded()
             self.willResignActive(.dataLeakage)
+            // ここで reparent を外す（復帰クラッシュ回避）
+            if self.preventScreenshotState == .on {
+                self.screenProtectorKit?.forceRestoreWindowLayerIfPossible()
+            }
         }
     }
     
