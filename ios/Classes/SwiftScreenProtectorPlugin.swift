@@ -45,7 +45,12 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             tearDownManager()
         }
         
-        guard screenProtectorKit == nil else { return }
+        guard screenProtectorKit == nil else {
+            if let window = currentWindow {
+                screenProtectorKit?.updateWindowIfNeeded(window)
+            }
+            return
+        }
         guard let window = currentWindow else {
             self.log()
             // Disable data leakage protection when no active UIWindow is available
