@@ -101,6 +101,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 }
                 self.logWindowState(context: "applyPendingScreenshotOn", window: Self.activeWindow())
                 self.screenProtectorKit?.configurePreventionScreenshot()
+                self.screenProtectorKit?.prepareReparentForScreenshotOn()
                 self.screenProtectorKit?.enabledPreventScreenshot()
                 self.lastAppliedScreenshotState = .on
             } else if pending == .off {
