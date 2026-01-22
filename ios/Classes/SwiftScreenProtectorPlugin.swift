@@ -323,28 +323,43 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     }
     
     private static func activeWindow() -> UIWindow? {
+        // まず FlutterViewController の view.window を優先
+        if let flutterWindow = currentFlutterWindowFromView() {
+            return flutterWindow
+        }
+        // fallback（従来通り）
         if #available(iOS 13.0, *) {
             let windows = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
                 .filter { $0.activationState == .foregroundActive }
                 .flatMap { $0.windows }
             let stableWindows = windows.filter { isStableWindow($0) }
-            if let flutterWindow = stableWindows.first(where: { isFlutterRootWindow($0) }) {
-                return flutterWindow
-            }
             return stableWindows.first { $0.isKeyWindow } ?? stableWindows.first
         } else {
-            let windows = UIApplication.shared.windows
-            let stableWindows = windows.filter { isStableWindow($0) }
-            if let flutterWindow = stableWindows.first(where: { isFlutterRootWindow($0) }) {
-                return flutterWindow
-            }
+            let stableWindows = UIApplication.shared.windows.filter { isStableWindow($0) }
             return stableWindows.first { $0.isKeyWindow } ?? stableWindows.first
         }
     }
 
     private static func isFlutterRootWindow(_ window: UIWindow) -> Bool {
         return window.rootViewController is FlutterViewController
+    }
+
+    private static func currentFlutterWindowFromView() -> UIWindow? {
+        let allWindows: [UIWindow]
+        if #available(iOS 13.0, *) {
+            allWindows = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+        } else {
+            allWindows = UIApplication.shared.windows
+        }
+        if let flutterWindow = allWindows.first(where: { isFlutterRootWindow($0) }) {
+            if let viewWindow = flutterWindow.rootViewController?.view.window {
+                return viewWindow
+            }
+        }
+        return nil
     }
 
     private static func isStableWindow(_ window: UIWindow) -> Bool {
