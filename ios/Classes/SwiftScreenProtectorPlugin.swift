@@ -21,8 +21,8 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     private var lastAppliedScreenshotState: ProtectionState = .idle
     private var screenshotStateWorkItem: DispatchWorkItem? = nil
     private let screenshotStateDelay: TimeInterval = 0.2
-    private var lastDidBecomeActiveAt: TimeInterval? = nil
-    private let reparentCooldownAfterActive: TimeInterval = 0.8
+    private var lastDidBecomeActiveAt: TimeInterval = 0
+    private let reparentCooldownAfterActive: TimeInterval = 1.2
     
     override public init() {
         super.init()
@@ -76,8 +76,9 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 if !self.isProtectionEnabled {
                     return
                 }
-                if let activeAt = self.lastDidBecomeActiveAt {
-                    let elapsed = Date().timeIntervalSince1970 - activeAt
+                let now = ProcessInfo.processInfo.systemUptime
+                if self.lastDidBecomeActiveAt > 0 {
+                    let elapsed = now - self.lastDidBecomeActiveAt
                     if elapsed < self.reparentCooldownAfterActive {
                         self.scheduleApplyPendingScreenshotState()
                         return
@@ -168,7 +169,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
     public func applicationDidBecomeActive(_ application: UIApplication) {
         // Protect Data Leakage - OFF && Prevent Screenshot - ON
         DispatchQueue.main.async {
-            self.lastDidBecomeActiveAt = Date().timeIntervalSince1970
+            self.lastDidBecomeActiveAt = ProcessInfo.processInfo.systemUptime
             self.logWindowState(context: "applicationDidBecomeActive", window: Self.activeWindow())
             self.initializeManagerIfNeeded()
             self.didBecomeActive(.dataLeakage)
@@ -301,6 +302,7 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
         }
         
         let foregroundObserver = center.addObserver(forName: UIScene.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.lastDidBecomeActiveAt = ProcessInfo.processInfo.systemUptime
             self?.initializeManagerIfNeeded()
         }
         
@@ -319,21 +321,31 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
                 .compactMap { $0 as? UIWindowScene }
                 .filter { $0.activationState == .foregroundActive }
                 .flatMap { $0.windows }
-            if let flutterWindow = windows.first(where: { isFlutterRootWindow($0) }) {
+            let stableWindows = windows.filter { isStableWindow($0) }
+            if let flutterWindow = stableWindows.first(where: { isFlutterRootWindow($0) }) {
                 return flutterWindow
             }
-            return windows.first { $0.isKeyWindow }
+            return stableWindows.first { $0.isKeyWindow } ?? stableWindows.first
         } else {
             let windows = UIApplication.shared.windows
-            if let flutterWindow = windows.first(where: { isFlutterRootWindow($0) }) {
+            let stableWindows = windows.filter { isStableWindow($0) }
+            if let flutterWindow = stableWindows.first(where: { isFlutterRootWindow($0) }) {
                 return flutterWindow
             }
-            return windows.first { $0.isKeyWindow }
+            return stableWindows.first { $0.isKeyWindow } ?? stableWindows.first
         }
     }
 
     private static func isFlutterRootWindow(_ window: UIWindow) -> Bool {
         return window.rootViewController is FlutterViewController
+    }
+
+    private static func isStableWindow(_ window: UIWindow) -> Bool {
+        if window.isHidden || window.alpha <= 0.0 {
+            return false
+        }
+        let screenBounds = (window.windowScene?.screen.bounds ?? UIScreen.main.bounds).integral
+        return window.bounds.integral == screenBounds
     }
     
     private func log() {
