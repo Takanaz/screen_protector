@@ -66,7 +66,14 @@ public class SwiftScreenProtectorPlugin: NSObject, FlutterPlugin {
             guard let self else { return }
             self.initializeManagerIfNeeded()
             guard let pending = self.pendingScreenshotState else { return }
-            guard self.screenProtectorKit != nil, Self.activeWindow() != nil else { return }
+            guard self.screenProtectorKit != nil else {
+                self.scheduleApplyPendingScreenshotState()
+                return
+            }
+            guard Self.activeWindow() != nil else {
+                self.scheduleApplyPendingScreenshotState()
+                return
+            }
             guard pending == self.preventScreenshotState else {
                 self.pendingScreenshotState = nil
                 return
